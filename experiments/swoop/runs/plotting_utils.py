@@ -1,3 +1,4 @@
+# Copyright (C) Eta Scale AB. Licensed under the Eta Scale Open Source License. See the LICENSE file for details.
 import matplotlib.pyplot as plt
 import warnings
 import plot_experiments as swoopplot

@@ -1,4 +1,5 @@
 # Import smtplib for the actual sending function
+# Copyright (C) Eta Scale AB. Licensed under the Eta Scale Open Source License. See the LICENSE file for details.
 import smtplib
 
 # Import the email modules we'll need
