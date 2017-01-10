@@ -87,6 +87,11 @@ namespace swoop {
     // Postdom Tree
     PostDominatorTree *PDT;
 
+    ////////
+    // Heuristic: is it worth transforming?
+    ////////
+    bool isWorthTransforming(Function &F, list<LoadInst*> &Loads);
+
     // Divide loads into each category: prefetch, reuse or load
     virtual void divideLoads(list<LoadInst *> &toHoist,
                              list<LoadInst *> &toPref,
