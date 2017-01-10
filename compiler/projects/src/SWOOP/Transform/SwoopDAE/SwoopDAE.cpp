@@ -513,6 +513,37 @@ bool SwoopDAE::updateSucceedingAccessMaps(Phase &P,
   }
 }
 
+bool SwoopDAE::isWorthTransforming(Function &F, list<LoadInst*> &Loads) {
+  std::vector<Loop *> Loops(LI->begin(), LI->end());
+  assert(Loops.size() == 1 && "After modification we should only have one loop!");
+
+  Loop *LoopToTransform = Loops.at(0);
+
+  SmallVector < BasicBlock * , 4 > ExitingBlocks;
+  LoopToTransform->getExitingBlocks(ExitingBlocks);
+
+  set<Instruction*> Deps;
+  for (BasicBlock *B : ExitingBlocks) {
+    TerminatorInst *TI = B->getTerminator();
+    getRequirementsInIteration(AA, LI, TI, Deps);
+    Deps.insert(TI);
+  }
+
+  int branchCount = 0;
+  for (Instruction *Inst : Deps) {
+    if (isa<TerminatorInst>(Inst)) {
+      ++branchCount;
+    }
+  }
+
+  errs() << "Heuristic: " << Loads.size() << " Loads, " << branchCount << " Branches.\n";
+  if (Loads.size() / (double) branchCount < 0.5) {
+    return false;
+  }
+
+  return true;
+}
+
 bool SwoopDAE::swoopify(Function &F) {
   LI = &getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
   DT = &getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
@@ -536,6 +567,11 @@ bool SwoopDAE::swoopify(Function &F) {
 
   errs() << "Indir: " << IndirThresh << ", " << toHoist.size() << " load(s) in access phase.\n";
   errs() << "(BadLCDDeps: " << BadLCDDeps << ")\n";
+
+  if (!isWorthTransforming(F, toHoist)) {
+    errs() << "Transformation not suitable for this loop.\n";
+    return false;
+  }
 
   if (toHoist.empty()) {
     errs() << "Disqualified: no loads to hoist\n";
