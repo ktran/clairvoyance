@@ -331,7 +331,7 @@ def get_bm_reference(benchname, input_type, input_counter, inp, stdin_input):
     return 'log'
   if benchname == '331.art_l':
       return '.'.join([input_type, str(input_counter), 'out'])
-  if benchname == 'CG' or benchname == 'LU' or benchname == 'UA' or '429.mcf.kernel':
+  if benchname == 'CG' or benchname == 'LU' or benchname == 'UA' or  benchname == '429.mcf.kernel':
       return '.'.join([input_type, 'out']) # no real reference output
   else:
     return bm_reference[benchname]
