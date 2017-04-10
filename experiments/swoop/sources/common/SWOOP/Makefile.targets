@@ -1,0 +1,40 @@
+######
+# Setting the targets to build
+# 
+
+# Targets to build
+UNROLL_COUNT= 1 2 4
+INDIR_COUNT= 0 1 2 3
+INSTR_SCHED=list-ilp list-hybrid list-burr
+
+# Swoop filename suffixes
+ORIGINAL_SUFFIX=original
+SCHEDULING_SUFFIX=sched
+UNROLL_SUFFIX=unroll
+SWOOP_TYPE=consv spec specsafe multispec multispecsafe
+
+# Targets
+ORIGINAL_TARGETS=$(BENCHMARK).$(ORIGINAL_SUFFIX)
+SWOOP_TARGETS=$(foreach type, $(SWOOP_TYPE), \
+		 $(foreach indir, $(INDIR_COUNT), \
+			$(foreach unr, $(UNROLL_COUNT), \
+				$(BENCHMARK).unr$(unr).indir$(indir).$(type))))
+
+CAE_TARGETS=$(foreach unr, $(UNROLL_COUNT),	$(BENCHMARK).unr$(unr).cae)
+UNROLL_TARGETS=$(foreach unr, $(UNROLL_COUNT),	$(BENCHMARK).unr$(unr).unroll)
+
+
+SCHEDULING_TARGETS=$(foreach type, $(INSTR_SCHED), \
+			     			     $(BENCHMARK).sched$(type).$(SCHEDULING_SUFFIX))
+
+ALLTARGETS=$(SWOOP_TARGETS) $(ORIGINAL_TARGETS) $(SCHEDULING_TARGETS)
+
+# Output directory
+BINDIR=../bin
+
+# TARGETS
+TARGETS=$(addprefix $(BINDIR)/, $(ALLTARGETS))
+
+
+
+

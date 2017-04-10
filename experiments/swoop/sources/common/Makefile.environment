@@ -1,0 +1,6 @@
+######
+# Setting the environment variables 
+# 
+
+COMPILER_LIB=$(HOME)/clairvoyance/build/projects-build/lib
+LLVM_BIN=$(HOME)/clairvoyance/build/llvm-build/bin

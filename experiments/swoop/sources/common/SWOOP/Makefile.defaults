@@ -1,0 +1,178 @@
+######
+# Makefile for Clairvoyance Code (latest updated April 2017).
+# 
+
+include $(LEVEL)/common/Makefile.environment
+
+######
+# Environment
+#
+
+# LLVM tools
+OPT=$(LLVM_BIN)/opt
+CLANG=$(LLVM_BIN)/clang 
+CLANGCPP=$(LLVM_BIN)/clang++
+LLC=$(LLVM_BIN)/llc
+EXTRACT=$(LLVM_BIN)/llvm-extract
+LINK=$(LLVM_BIN)/llvm-link
+
+LIBS_FLAGS= 
+
+# SWOOP Marking
+SWOOP_MARKER='__kernel__'
+
+######
+# Helper definitions
+#
+
+# Retrieving information from target file name
+get_unroll=$(shell echo $@ | sed -n 's/.*\.unr\([0-9]*\)\..*/\1/p')
+get_indir=$(shell echo $@ | sed -n 's/.*\.indir\([0-9]*\)\..*/\1/p')
+get_swoop_type=$(shell echo $@ | sed -n 's/.*\.\([a-z]*\)\.ll/\1/p')
+get_scheduling=$$(shell echo $$@ | sed -n 's/.*\.sched\([a-z]*\)\..*/\1/p')
+
+# Helper to generate prerequisites of rules
+get_objects=$$(addprefix $(BINDIR)/, $$(addsuffix .O3.ll, $$(basename $$(SRCS))))
+get_swoop_prerequisites=$$(shell echo $$@ | sed 's/indir.*/extract.ll/g')
+get_marked=$$(addprefix $(BINDIR)/, $$(addsuffix .marked.ll,$$(basename $$(SRCS))))
+
+get_kernel_marked_files=$$(shell find $(BINDIR) -iname "*.marked.ll" | xargs grep -l '__kernel__\|define.*@main' | sed 's/.marked.ll/.$$*.O3.ll/g')
+get_unmodified_files=$$(shell find $(BINDIR) -iname "*.marked.ll"  | xargs grep -l -L '__kernel__\|define.*@main' | sed 's/.marked/.marked.O3/g')
+
+get_sched_marked_files=$$(shell find $(BINDIR) -iname "*.marked.ll" | xargs grep -l '__kernel__'  | sed 's/.marked.ll/.$$*.o/g')
+get_sched_unmodified_files=$$(shell find $(BINDIR) -iname "*.marked.ll"| xargs grep  -l -L '__kernel__' | sed 's/.marked.ll/.marked.O3.ll/g')
+
+# Options for swoop pass
+consv_options=-dae-swoop -hoist-delinquent=false 
+specsafe_options=-aggressive-swoop -hoist-delinquent=false 
+spec_options=-speculative-swoop -hoist-delinquent=false 
+
+multispecsafe_options=-aggressive-swoop -hoist-delinquent=false -multi-access 
+multispec_options=-speculative-swoop -hoist-delinquent=false -multi-access 
+
+# Options for marking
+opt_marking=-require-delinquent=true
+
+# Debugging purposes: print variable using make print-$(VARIABLE)
+#print-%: ; @echo $*=$($*)
+
+# Debugging purposes: keep all generated ll files
+.PRECIOUS: %.ll
+.SECONDARY:
+
+.SECONDEXPANSION:
+# 
+# Create marked files first (marked whether to swoopify or not), then
+# evaluate how to build the targets
+all: $(get_marked)
+	$(MAKE) $(TARGETS)
+
+define create_swoop
+	$(eval $@_UNR:=$(get_unroll))
+	$(eval $@_INDIR:=$(get_indir))
+	$(eval $@_OPTIONS:=$($(get_swoop_type)_options))
+	$(OPT) -S -tbaa -basicaa -globals-aa -scev-aa \
+	-load $(COMPILER_LIB)/libOptimisticSwoop.so $($@_OPTIONS) -merge-branches -branch-prob-threshold 0.9 \
+	-indir-thresh $($@_INDIR)  \
+	-unroll $($@_UNR) -mem2reg -o $@ $<;
+endef
+
+# remove DVFS output
+# 	-load $(COMPILER_LIB)/libTimeOrig.so \
+
+# Main makefile rules
+#
+$(BINDIR)/%.$(ORIGINAL_SUFFIX): $(get_objects)
+	$(CLANGCPP) $(CXXFLAGS) $(CFLAGS)  $^ $(LDFLAGS) $(LIBS_FLAGS) -o $@
+
+$(BINDIR)/$(BENCHMARK).sched%.$(SCHEDULING_SUFFIX): $(get_sched_marked_files) $(get_sched_unmodified_files)
+	$(CLANGCPP) $(CXXFLAGS) $(CFLAGS)  $^ $(LDFLAGS) $(LIBS_FLAGS) -o $@
+
+$(BINDIR)/$(BENCHMARK).%: $(get_unmodified_files) $(get_kernel_marked_files)
+	$(CLANGCPP) $(CXXFLAGS) $(CFLAGS)  $^ $(LDFLAGS) $(LIBS_FLAGS) -o $@
+
+$(BINDIR)/$(BENCHMARK).cae: $(get_sched_marked_files) $(get_sched_unmodified_files)
+	$(CLANGCPP) $(CXXFLAGS) $(CFLAGS)  $^ $(LDFLAGS) $(LIBS_FLAGS) -o $@
+
+%.smart.ll:  $(get_swoop_prerequisites)
+	${create_swoop}
+
+%.consv.ll:  $(get_swoop_prerequisites)
+	${create_swoop}
+
+%.specsafe.ll: $(get_swoop_prerequisites)
+	${create_swoop}
+%.spec.ll: $(get_swoop_prerequisites)
+	${create_swoop}
+
+%.multispecsafe.ll: $(get_swoop_prerequisites)
+	${create_swoop}
+%.multispec.ll: $(get_swoop_prerequisites)
+	${create_swoop}
+
+%.list-ilp.o: %.O3.ll
+	$(LLC) -O3 -filetype=obj -pre-RA-sched=list-ilp $^ -o $@
+%.list-burr.o: %.O3.ll
+	$(LLC) -O3 -filetype=obj -pre-RA-sched=list-burr $^ -o $@
+%.list-hybrid.o: %.O3.ll
+	$(LLC) -O3 -filetype=obj -pre-RA-sched=list-hybrid $^ -o $@
+
+# General object rules
+#
+$(BINDIR)/%.ll: %.c
+	mkdir -p $(BINDIR)/$(shell dirname $^)
+	$(CLANG) $(CFLAGS)  $^ -S -emit-llvm -o $@
+
+$(BINDIR)/%.ll: %.cpp
+	mkdir -p $(BINDIR)/$(shell dirname $<)
+	$(CLANGCPP) $(CXXFLAGS)  $^ -S -emit-llvm -o $@
+
+$(BINDIR)/%.ll: %.cc
+	mkdir -p $(BINDIR)/$(shell dirname $<)
+	$(CLANGCPP) $(CXXFLAGS)  $^ -S -emit-llvm -o $@		     
+
+$(BINDIR)/%.ll: %.C
+	mkdir -p $(BINDIR)/$(shell dirname $<)
+	$(CLANGCPP) $(CXXFLAGS)  $^ -S -emit-llvm -o $@
+
+
+# Do not run O3 on unrolling - otherwise the effect is diminished
+#%.unroll.O3.ll: %.unroll.ll
+#	cp $< $@
+
+
+%.O3.ll: %.ll
+	$(OPT) -S -O3 $^ -o $@
+
+# SWOOP related rules
+#
+%.marked.ll: %.stats.ll
+	 $(OPT) -S -load $(COMPILER_LIB)/libMarkLoopsToSwoopify.so \
+	-mark-loops -require-delinquent=false -bench-name $(BENCHMARK) \
+	-o $@ $<; \
+
+%.annotated.ll: %.marked.ll
+	$(OPT) -S -load $(COMPILER_LIB)/libCFGIndirectionCount.so -annotate-cfg-indir \
+	-loop-name $(SWOOP_MARKER) -o $@ $<; \
+
+%.unroll.ll: $$(shell echo $$@ | sed 's/.unr[0-9]\+.*/.annotated.ll/g')
+	$(eval $@_UNR:=$(get_unroll))	
+	$(OPT) -S -loop-unswitch -instcombine -loops -lcssa \
+	-loop-simplify -loop-rotate -indvars -scalar-evolution -licm -lcssa \
+	-load $(COMPILER_LIB)/libUtilLoops.so -single-loop-unroll \
+	-loop-name $(SWOOP_MARKER) -unroll $($@_UNR) -o $@ $<;
+
+%.extract.ll: %.unroll.ll
+	$(OPT) -S -load $(COMPILER_LIB)/libLoopExtract.so \
+	-aggregate-extracted-args -second-loop-extract -bench-name $(BENCHMARK) -mergereturn \
+	-load $(COMPILER_LIB)/libBranchAnnotate.so -branchannotate \
+	-o $@ $<;
+
+%.stats.ll: %.ll
+	cp $< $@
+
+%.cae.ll: %.extract.ll
+	$(OPT) -S -load $(COMPILER_LIB)/libTimeOrig.so -papi-orig -always-inline -o $@ $<;
+
+clean:
+	rm -rf $(BINDIR)/*
