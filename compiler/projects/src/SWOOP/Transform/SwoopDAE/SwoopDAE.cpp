@@ -703,18 +703,42 @@ Phase* SwoopDAE::createAccessExecuteFunction(Function &F, list<LoadInst *, alloc
 }
 
 bool SwoopDAE::createAndAppendExecutePhase(Phase *MainPhase, Phase *ExecutePhase, vector<BasicBlock *> &PhaseRoots) {
-  set<Instruction *> toReuseInExecute, toKeep;
+  set<Instruction *> toReuseInExecute, toKeep, toReuseFromMain;
 
-  selectInstructionsToReuseInExecute(MainPhase->F, &toKeep /* not used */, &toReuseInExecute, acceptedForReuse(), ReuseAll, ReuseBranchCondition);
+  LI = &getAnalysis<LoopInfoWrapperPass>(*(ExecutePhase->F)).getLoopInfo();
+  DT->recalculate(*(ExecutePhase->F));
+  PDT = &getAnalysis<PostDominatorTree>(*(ExecutePhase->F));
+
+  selectInstructionsToReuseInExecute(ExecutePhase->F, &toKeep /* not used */, &toReuseInExecute, acceptedForReuse(), ReuseAll, ReuseBranchCondition);
   PhaseRoots.push_back(&(ExecutePhase->F->getEntryBlock()));
+  
+  for (auto I : toReuseInExecute) {
+    ValueToValueMapTy::iterator vI = ExecutePhase->VMap.begin();
+    ValueToValueMapTy::iterator vE = ExecutePhase->VMap.end();
+    while (vI != vE) {
+      if (vI->first && vI->second) {
+	if (I == vI->second) {
+	  Value *V = const_cast<Value*>(vI->first);
+	  Instruction *MainPhaseI = dyn_cast<Instruction>(V);
+	  toReuseFromMain.insert(MainPhaseI);
+	}
+      }	  
+      ++vI;
+    }
+  }
 
-  combinePhases(*MainPhase,*ExecutePhase, toReuseInExecute, "execute", 100000 /* CHANGE! DO WE NEED THIS? */);
+  // Update loop info and dominator tree
+  LI = &getAnalysis<LoopInfoWrapperPass>(*(MainPhase->F)).getLoopInfo();
+
+  DT->recalculate(*(MainPhase->F));
+  PDT = &getAnalysis<PostDominatorTree>(*(MainPhase->F));
+
+  combinePhases(*MainPhase,*ExecutePhase, toReuseFromMain, "execute", 100000);
   removeReuseHelper(*(MainPhase->F));
 
   // Update loop info and dominator tree
   LI = &getAnalysis<LoopInfoWrapperPass>(*(MainPhase->F)).getLoopInfo();
 }
-
 
 Phase * SwoopDAE::createAccessPhases(vector<Phase *> &AccessPhases,
                                      Phase &ExecutePhase,
