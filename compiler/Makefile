@@ -45,8 +45,6 @@ OMP=$(LLVM_PROJECTS)/openmp
 OMP_REPOSITORY=https://github.com/llvm-mirror/openmp.git
 
 TOOL_RELEASE=release_38
-TARGETS_TO_BUILD=X86
-#TARGETS_TO_BUILD="X86;ARM"
 
 #------------------------------------------------------------------------------
 # Projects
@@ -69,7 +67,7 @@ $(CLANG_LIB): $(LLVM_BUILD_MAKEFILE)
 
 $(LLVM_BUILD_MAKEFILE): $(LLVM_DIR)/Makefile $(CLANG) $(COMPILER_RT) $(OMP)
 	mkdir -p $(LLVM_BUILD_DIR)
-	cd $(LLVM_BUILD_DIR); cmake -D CMAKE_BUILD_TYPE=$(BUILD_TYPE) -DLLVM_TARGETS_TO_BUILD=$(TARGETS_TO_BUILD) -DLLVM_BINUTILS_INCDIR=/usr/include $(LLVM_DIR);
+	cd $(LLVM_BUILD_DIR); cmake -D CMAKE_BUILD_TYPE=$(BUILD_TYPE) -DLLVM_BINUTILS_INCDIR=/usr/include $(LLVM_DIR);
 
 $(LLVM_DIR)/Makefile:
 ifeq ($(GIT_SHALLOW),1)
@@ -84,32 +82,28 @@ ifeq ($(GIT_SHALLOW),1)
 #	git --git-dir=$(LLVM_DIR)/.git --work-tree=$(LLVM_DIR) fetch --depth 1 origin $(LLVM_RELEASE)
 #	git --git-dir=$(LLVM_DIR)/.git --work_tree=$(LLVM_DIR) reset --hard FETCH_HEAD
 else
-	git clone $(LLVM_REPOSITORY) $(LLVM_DIR);
-	cd $(LLVM_DIR); git checkout $(LLVM_RELEASE);
+	git clone $(LLVM_REPOSITORY) $(LLVM_DIR) -b $(LLVM_RELEASE);
 endif
 
-$(CLANG): $(LLVM_DIR)/Makefile
+$(CLANG): $(LLVM_DIR)/CMakeLists.txt
 ifeq ($(GIT_SHALLOW),1)
 	cd $(LLVM_TOOLS); git clone -b $(TOOL_RELEASE) --depth 1 $(CLANG_REPOSITORY);
 else
-	cd $(LLVM_TOOLS); git clone $(CLANG_REPOSITORY);
-	cd $(CLANG); git checkout $(TOOL_RELEASE);
+	cd $(LLVM_TOOLS); git clone $(CLANG_REPOSITORY) -b $(TOOL_RELEASE);
 endif
 
-$(COMPILER_RT): $(LLVM_DIR)/Makefile
+$(COMPILER_RT): $(LLVM_DIR)/CMakeLists.txt
 ifeq ($(GIT_SHALLOW),1)
 	cd $(LLVM_PROJECTS); git clone -b $(TOOL_RELEASE) --depth 1 $(COMPILER_RT_REPOSITORY);
 else
-	cd $(LLVM_PROJECTS); git clone $(COMPILER_RT_REPOSITORY);
-	cd $(COMPILER_RT); git checkout $(TOOL_RELEASE);
+	cd $(LLVM_PROJECTS); git clone $(COMPILER_RT_REPOSITORY) -b $(TOOL_RELEASE);
 endif
 
-$(OMP): $(LLVM_DIR)/Makefile
+$(OMP): $(LLVM_DIR)/CMakeLists.txt
 ifeq ($(GIT_SHALLOW),1)
 	cd $(LLVM_PROJECTS); git clone -b $(TOOL_RELEASE) --depth 1 $(OMP_REPOSITORY);
 else
-	cd $(LLVM_PROJECTS); git clone $(OMP_REPOSITORY);
-	cd $(OMP); git checkout $(TOOL_RELEASE);
+	cd $(LLVM_PROJECTS); git clone $(OMP_REPOSITORY)  -b $(TOOL_RELEASE);
 endif
 
 
