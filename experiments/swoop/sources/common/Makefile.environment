@@ -2,5 +2,5 @@
 # Setting the environment variables 
 # 
 
-COMPILER_LIB=$(HOME)/clairvoyance/build/projects-build/lib
-LLVM_BIN=$(HOME)/clairvoyance/build/llvm-build/bin
+COMPILER_LIB=var/www/compiler/build/projects-build/lib
+LLVM_BIN=/var/www/compiler/build/llvm-build/bin
