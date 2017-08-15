@@ -5,5 +5,5 @@ It is currently being developed at Uppsala University.
 
 More infos to come.
 
-[1] <a href="www.sjalander.com/research/pdf/sjalander-cgo2017.pdf">Clairvoyance: Look-ahead Compile-Time Scheduling</a>
+[1] <a href="http://www.sjalander.com/research/pdf/sjalander-cgo2017.pdf">Clairvoyance: Look-ahead Compile-Time Scheduling</a>
 
