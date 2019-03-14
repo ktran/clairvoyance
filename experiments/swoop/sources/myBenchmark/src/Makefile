@@ -3,11 +3,13 @@
 LEVEL=../../
 BENCHMARK=myBenchmark
 
+UNROLL_COUNT=
+
 SRCS=small_benchmark.cpp
 
 CFLAGS=
 CXXFLAGS=-O3
 LDFLAGS=
 
-include $(LEVEL)/common/DAE/Makefile.targets
-include $(LEVEL)/common/DAE/Makefile.defaults
+include $(LEVEL)/common/SWOOP/Makefile.targets
+include $(LEVEL)/common/SWOOP/Makefile.defaults
